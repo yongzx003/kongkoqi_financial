@@ -6,6 +6,7 @@ function renderExpenses(){
   const ff=document.getElementById('fFund').value||'all';
   const fm=document.getElementById('fMonth').value||'all';
   const ft=document.getElementById('fTag')?.value||'all';
+  const fq=(document.getElementById('fSearch')?.value||'').trim().toLowerCase();
 
   populateFundSelects();
 
@@ -23,6 +24,7 @@ function renderExpenses(){
   if(ff!=='all')txns=txns.filter(e=>e.fund===ff);
   if(fm!=='all')txns=txns.filter(e=>(e.month||cm())===fm);
   if(ft!=='all')txns=txns.filter(e=>e.tag===ft);
+  if(fq)txns=txns.filter(e=>(e.label||'').toLowerCase().includes(fq)||String(e.amount||'').includes(fq)||(e.tag||'').toLowerCase().includes(fq));
 
   if(!txns.length){document.getElementById('expList').innerHTML='<div class="empty">No transactions match — try changing the filters above</div>';}
   else{

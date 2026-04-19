@@ -1,5 +1,5 @@
 // ─── HELPERS ─────────────────────────────────────────────────────
-function RM(n){return'RM '+Math.round(n).toLocaleString();}
+function RM(n){return'RM '+Number(n).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function cm(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 function mlabel(m){if(!m)return'';const[y,mo]=m.split('-');return new Date(y,mo-1,1).toLocaleString('default',{month:'long',year:'numeric'});}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}

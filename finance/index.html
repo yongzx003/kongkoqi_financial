@@ -146,6 +146,7 @@
     <select id="fMonth" onchange="renderExpenses()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);">
       <option value="all">All months</option>
     </select>
+    <input id="fSearch" type="text" placeholder="Search…" oninput="renderExpenses()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);min-width:120px;">
   </div>
   <div class="card card-sm" id="expList"></div>
   <div style="margin-top:20px;"><div class="sh">Monthly summary</div><div class="card card-sm" id="expSummary"></div></div>
