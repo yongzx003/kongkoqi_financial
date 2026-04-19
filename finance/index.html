@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Financial Management System</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<div class="app">
+<nav class="sidebar">
+  <div class="logo"><h1>Financial Management System</h1><p class="mono" id="sideMonth"></p></div>
+  <div class="nav-sec">Overview</div>
+  <div class="nav-item active" onclick="go('dashboard')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" fill="currentColor" opacity=".5"/><rect x="9" y="2" width="5" height="5" rx="1" fill="currentColor"/><rect x="2" y="9" width="5" height="5" rx="1" fill="currentColor"/><rect x="9" y="9" width="5" height="5" rx="1" fill="currentColor" opacity=".5"/></svg>Dashboard
+  </div>
+  <div class="nav-item" onclick="go('networth')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 12l3-4 3 2 3-5 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Net worth
+  </div>
+  <div class="nav-sec">Money</div>
+  <div class="nav-item" onclick="go('income')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M3 7l5-5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Income
+  </div>
+  <div class="nav-item" onclick="go('expenses')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 14V2M3 9l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Expenses
+  </div>
+  <div class="nav-sec">Records</div>
+  <div class="nav-item" onclick="go('vaults')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M3 13V7l5-5 5 5v6H3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><rect x="6" y="9" width="4" height="4" rx=".5" fill="currentColor" opacity=".5"/></svg>Savings vaults
+  </div>
+  <div class="nav-item" onclick="go('claims')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 2a3 3 0 100 6 3 3 0 000-6zM3 14c0-3 10-3 10 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>To claim
+  </div>
+  <div class="nav-item" onclick="go('notmine')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 5V4a3 3 0 016 0v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Not my money
+  </div>
+  <div class="nav-sec">System</div>
+  <div class="nav-item" onclick="go('bin')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 4V3h4v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 7v4M9 7v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Recycle bin <span id="binCount" style="font-size:10px;background:var(--danger-l);color:var(--danger);border-radius:20px;padding:1px 6px;margin-left:4px;display:none;"></span>
+  </div>
+  <div class="nav-item" onclick="go('settings')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Settings
+  </div>
+  <div class="nav-item" onclick="exportData()">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M3 10v3h10v-3M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Export JSON
+  </div>
+  <div class="nav-item" onclick="document.getElementById('iFile').click()">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M3 10v3h10v-3M8 14V6M5 9l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Import JSON
+  </div>
+  <input type="file" id="iFile" accept=".json" style="display:none" onchange="importData(event)"/>
+  <div style="margin:16px 12px 0;">
+    <div id="gdBar" style="border-radius:var(--r-sm);border:1px solid var(--border);padding:10px 12px;">
+      <div id="gdLbl" style="font-size:11px;font-weight:500;margin-bottom:6px;">Google Drive</div>
+      <button id="gdBtn" class="btn btn-sm" style="width:100%;font-size:12px;"></button>
+    </div>
+  </div>
+</nav>
+<main class="main">
+
+<!-- DASHBOARD -->
+<div id="page-dashboard" class="page active">
+  <div class="ph"><h2>Dashboard</h2><p id="dashSub"></p></div>
+  <div id="dashWarnings" style="margin-bottom:12px;"></div>
+  <div class="g4" id="dashStats" style="margin-bottom:20px;"></div>
+  <div class="sh">Fund balances</div>
+  <div id="dashFunds" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px;"></div>
+  <div id="dashFixed" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px;"></div>
+  <div class="sh">Savings vaults</div>
+  <div id="dashVaults" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px;"></div>
+  <div class="sh">Recent transactions</div>
+  <div class="card card-sm" id="dashRecent"></div>
+</div>
+
+<!-- NET WORTH -->
+<div id="page-networth" class="page">
+  <div class="ph"><h2>Net worth</h2><p>Live from your savings vaults + fund balances</p></div>
+  <div class="g3" id="nwStats" style="margin-bottom:20px;"></div>
+  <div class="card" style="margin-bottom:20px;"><div class="sh" style="margin-top:0;">Vault breakdown</div><div id="nwVaultBreakdown"></div></div>
+  <div class="card" style="margin-bottom:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><div class="sh" style="margin-top:0;">History</div><button class="btn btn-sm edit-save-btn" onclick="addNW()">Save snapshot</button></div>
+    <div id="nwChart"></div><div id="nwHistory" style="margin-top:12px;"></div>
+  </div>
+</div>
+
+<!-- INCOME -->
+<div id="page-income" class="page">
+  <div class="ph"><h2>Income</h2><p>Log income to update your fund balances. Each entry auto-splits across your funds.</p></div>
+  <div class="info-box" style="margin-bottom:16px;">
+    <strong>How it works:</strong> When you log income, the system automatically deducts your fixed costs (Skin savings, Needs, Wants) and splits the remainder across your funds based on their % allocation. Fund balances update immediately.
+  </div>
+  <div class="sh">Log income</div>
+  <div class="card card-sm" style="margin-bottom:20px;">
+    <div class="fr">
+      <div class="fg"><label>Month</label><input type="month" id="incM"/></div>
+      <div class="fg f1"><label>Source</label><input type="text" id="incSrc" placeholder="e.g. Freelance, Angpow, Baba"/></div>
+      <div class="fg w120"><label>Amount (RM)</label><input type="number" id="incAmt" placeholder="0"/></div>
+      <div class="fg" style="justify-content:flex-end;"><button class="btn btn-p" onclick="addIncome()">Log</button></div>
+    </div>
+  </div>
+  <div class="sh">Allocation preview</div>
+  <div id="allocPreview" style="margin-bottom:20px;"></div>
+  <div class="sh">Income history</div>
+  <div class="card card-sm" id="incHistory"></div>
+</div>
+
+<!-- EXPENSES -->
+<div id="page-expenses" class="page">
+  <div class="ph"><h2>Expenses</h2><p>Log spending from any fund</p></div>
+  <div class="sh">Quick log</div>
+  <div class="card card-sm" style="margin-bottom:20px;">
+    <div class="fr">
+      <div class="fg f1"><label>Item</label><input type="text" id="expN" placeholder="What did you spend on?"/></div>
+      <div class="fg w140"><label>Fund</label><select id="expF"></select></div>
+      <div class="fg w120"><label>Amount (RM)</label><input type="number" id="expA" placeholder="0"/></div>
+      <div class="fg w120"><label>Tag (optional)</label><select id="expTag">
+        <option value="">— none —</option>
+        <option value="Food">Food</option>
+        <option value="Transport">Transport</option>
+        <option value="Health">Health</option>
+        <option value="Learning">Learning</option>
+        <option value="Appearance">Appearance</option>
+        <option value="Entertainment">Entertainment</option>
+        <option value="Utilities">Utilities</option>
+        <option value="Other">Other</option>
+      </select></div>
+      <div class="fg w140"><label>Date</label><input type="date" id="expD"/></div>
+      <div class="fg" style="justify-content:flex-end;"><button class="btn btn-p" onclick="addExpense()">Log</button></div>
+    </div>
+    <div class="sh" style="margin-top:0;margin-bottom:8px;">Quick-add fixed costs</div>
+    <div id="quickFixed" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+  </div>
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+    <div class="sh" style="margin:0;flex:1;">Transaction history</div>
+    <select id="fFund" onchange="renderExpenses()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);">
+      <option value="all">All funds</option>
+    </select>
+    <select id="fTag" onchange="renderExpenses()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);">
+      <option value="all">All tags</option>
+      <option value="Food">Food</option><option value="Transport">Transport</option>
+      <option value="Health">Health</option><option value="Learning">Learning</option>
+      <option value="Appearance">Appearance</option>
+      <option value="Entertainment">Entertainment</option><option value="Utilities">Utilities</option>
+      <option value="Other">Other</option>
+    </select>
+    <select id="fMonth" onchange="renderExpenses()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);">
+      <option value="all">All months</option>
+    </select>
+  </div>
+  <div class="card card-sm" id="expList"></div>
+  <div style="margin-top:20px;"><div class="sh">Monthly summary</div><div class="card card-sm" id="expSummary"></div></div>
+</div>
+
+<!-- VAULTS -->
+<div id="page-vaults" class="page">
+  <div class="ph"><h2>Savings vaults</h2><p>Named goals with deposit history</p></div>
+  <div id="vaultList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:20px;"></div>
+  <div class="sh">Add vault</div>
+  <div class="card card-sm">
+    <div class="fr">
+      <div class="fg f1"><label>Name</label><input type="text" id="vN" placeholder="e.g. Travel fund"/></div>
+      <div class="fg w120"><label>Target (RM)</label><input type="number" id="vT" placeholder="0 = no target"/></div>
+      <div class="fg">
+        <label>Type</label>
+        <select id="vType">
+          <option value="savings">Savings — save up toward a target</option>
+          <option value="spending">Spending — draw down a budget (e.g. skin, travel)</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Label <span style="font-weight:400;text-transform:none;font-size:10px;">(spending vaults only)</span></label>
+        <input type="text" id="vGoalLabel" placeholder="e.g. Session, Trip" style="padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:13px;outline:none;width:140px;"/>
+      </div>
+      <div class="fg w140">
+        <label>Auto-deposit (RM/mo) <span style="font-weight:400;text-transform:none;font-size:10px;">optional</span></label>
+        <input type="number" id="vAutoDeposit" placeholder="0 = none"/>
+      </div>
+      <div class="fg" style="justify-content:flex-end;">
+        <button class="btn btn-p" onclick="addVault()">Add vault</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CLAIMS -->
+<div id="page-claims" class="page">
+  <div class="ph"><h2>To claim</h2><p>Money you spent that others owe you back</p></div>
+  <div class="sh">Add claim</div>
+  <div class="card card-sm" style="margin-bottom:20px;">
+    <div class="fr">
+      <div class="fg f1"><label>Description</label><input type="text" id="clN" placeholder="What did you spend on?"/></div>
+      <div class="fg f1"><label>Claim from</label><input type="text" id="clFrom" placeholder="Who owes you this?"/></div>
+      <div class="fg w120"><label>Total (RM)</label><input type="number" id="clA" placeholder="0"/></div>
+      <div class="fg w140"><label>Date spent</label><input type="date" id="clD"/></div>
+      <div class="fg" style="justify-content:flex-end;"><button class="btn btn-p" onclick="addClaim()">Add</button></div>
+    </div>
+  </div>
+  <div class="g2" style="margin-bottom:20px;" id="claimStats"></div>
+  <div class="sh">Pending claims</div><div id="clPending"></div>
+  <div class="sh" style="margin-top:20px;">Fully claimed</div><div class="card card-sm" id="clDone"></div>
+</div>
+
+<!-- NOT MY MONEY -->
+<div id="page-notmine" class="page">
+  <div class="ph"><h2>Not my money</h2><p>Funds held on behalf of others — excluded from net worth</p></div>
+  <div class="sh">Add entry</div>
+  <div class="card card-sm" style="margin-bottom:20px;">
+    <div class="fr">
+      <div class="fg f1"><label>Description</label><input type="text" id="nmN" placeholder="What is this money for?"/></div>
+      <div class="fg f1"><label>Held for</label><input type="text" id="nmFor" placeholder="Who owes you this?"/></div>
+      <div class="fg w120"><label>Total (RM)</label><input type="number" id="nmT" placeholder="0"/></div>
+      <div class="fg w120"><label>Used (RM)</label><input type="number" id="nmU" placeholder="0"/></div>
+      <div class="fg w140"><label>Date</label><input type="date" id="nmD"/></div>
+      <div class="fg" style="justify-content:flex-end;"><button class="btn btn-p" onclick="addNM()">Add</button></div>
+    </div>
+  </div>
+  <div id="nmList"></div>
+</div>
+
+<!-- SETTINGS -->
+<div id="page-settings" class="page">
+  <div class="ph"><h2>Settings</h2><p>Configure everything — funds, budgets, fixed costs</p></div>
+
+  <div class="sh">Income & fixed deductions</div>
+  <div class="card card-sm" style="margin-bottom:20px;">
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">These are deducted first before the compulsory fund split.</p>
+    <div id="fixedCostList" style="margin-bottom:12px;"></div>
+    <div class="fr">
+      <div class="fg f1"><label>Label</label><input type="text" id="fcN" placeholder="e.g. Skin savings"/></div>
+      <div class="fg w120"><label>Amount (RM)</label><input type="number" id="fcA" placeholder="0"/></div>
+      <div class="fg" style="justify-content:flex-end;"><button class="btn btn-p" onclick="addFC()">Add fixed cost</button></div>
+    </div>
+    <hr style="margin:16px 0 12px;"/>
+    <div style="font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Vault auto-deposits (on income)</div>
+    <div id="vaultAutoDepositList"></div>
+  </div>
+
+  <div class="sh">Fund manager</div>
+  <div class="card card-sm" style="margin-bottom:20px;">
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Total allocation must equal 100%. Rollover = unused balance carries to next month.</p>
+    <div id="fundManager"></div>
+    <div id="allocWarning" style="margin-top:8px;"></div>
+    <hr/>
+    <div class="sh" style="margin-top:0;">Add new fund</div>
+    <div class="fr">
+      <div class="fg f1"><label>Fund name</label><input type="text" id="fnN" placeholder="e.g. Health fund"/></div>
+      <div class="fg w100"><label>Alloc %</label><input type="number" id="fnP" placeholder="0" min="0" max="100"/></div>
+      <div class="fg w100"><label>Color</label>
+        <select id="fnC">
+          <option value="purple">Purple</option><option value="teal">Teal</option>
+          <option value="amber">Amber</option><option value="info">Blue</option>
+          <option value="pink">Pink</option><option value="accent">Green</option>
+          <option value="danger">Red</option>
+        </select>
+      </div>
+      <div class="fg" style="align-items:center;padding-top:16px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+          <input type="checkbox" id="fnR" style="width:14px;height:14px;"/> Rollover
+        </label>
+      </div>
+      <div class="fg" style="justify-content:flex-end;"><button class="btn btn-p" onclick="addFund()">Add fund</button></div>
+    </div>
+    <div class="sh">Decision rules</div>
+    <div id="ruleEditor"></div>
+  </div>
+
+  <hr/>
+  <div class="sh">Fund transfers</div>
+  <div class="card card-sm" style="margin-bottom:20px;">
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Move balance between funds with a reason.</p>
+    <div class="fr">
+      <div class="fg w140"><label>From</label><select id="tfFrom"></select></div>
+      <div class="fg w140"><label>To</label><select id="tfTo"></select></div>
+      <div class="fg w120"><label>Amount (RM)</label><input type="number" id="tfAmt" placeholder="0"/></div>
+      <div class="fg f1"><label>Reason</label><input type="text" id="tfReason" placeholder="Why?"/></div>
+      <div class="fg" style="justify-content:flex-end;"><button class="btn btn-p" onclick="doTransfer()">Transfer</button></div>
+    </div>
+    <div id="transferHistory" style="margin-top:8px;"></div>
+  </div>
+
+  <hr/>
+  <div class="sh">Danger zone</div>
+  <div class="card card-sm">
+    <button class="btn btn-d" onclick="resetAll()">Reset all data</button>
+  </div>
+</div>
+
+<!-- RECYCLE BIN -->
+<div id="page-bin" class="page">
+  <div class="ph"><h2>Recycle bin</h2><p>Deleted items — restore or permanently delete</p></div>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+    <select id="binFilter" onchange="renderBin()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);">
+      <option value="all">All types</option>
+      <option value="expense">Expenses</option>
+      <option value="income">Income</option>
+      <option value="vault">Vaults</option>
+      <option value="claim">Claims</option>
+      <option value="notmine">Not my money</option>
+      <option value="networth">Net worth snapshots</option>
+    </select>
+    <button class="btn btn-sm btn-d" onclick="emptyBin()">Empty bin</button>
+  </div>
+  <div id="binList"></div>
+</div>
+</main>
+</div>
+<div id="toast"></div>
+<!-- Allocation Modal -->
+<div class="modal-overlay" id="allocModal">
+  <div class="modal" style="max-width:500px;width:min(500px,94vw);padding:24px;max-height:88vh;display:flex;flex-direction:column;">
+    <div class="modal-title">Confirm income allocation</div>
+    <div id="allocModalSub" style="font-size:13px;color:var(--muted);margin-bottom:4px;"></div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Adjust any line — all lines must sum to the income amount.</div>
+    <div id="allocModalRows" style="overflow-y:auto;flex:1;margin:0 -4px;padding:0 4px;"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0 4px;border-top:1px solid var(--border);margin-top:8px;">
+      <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Total allocated</div>
+      <div id="allocModalSum" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;"></div>
+    </div>
+    <div id="allocModalErr" style="font-size:12px;color:var(--danger);margin-bottom:8px;display:none;"></div>
+    <div class="modal-actions" style="margin-top:8px;">
+      <button class="btn" onclick="allocModalCancel()">Cancel</button>
+      <button class="btn edit-save-btn" id="allocModalLogBtn" onclick="allocModalCommit()">Log income</button>
+    </div>
+  </div>
+</div>
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Confirm</div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="modalCancel()">Cancel</button>
+      <button class="btn btn-d" id="modalConfirmBtn" onclick="modalConfirm()">Delete</button>
+    </div>
+  </div>
+</div>
+<script src="js/helpers.js"></script>
+<script src="js/state.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/networth.js"></script>
+<script src="js/income.js"></script>
+<script src="js/expenses.js"></script>
+<script src="js/vaults.js"></script>
+<script src="js/claims.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/bin.js"></script>
+<script src="js/gdrive.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
