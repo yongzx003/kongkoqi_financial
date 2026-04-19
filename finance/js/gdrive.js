@@ -1,6 +1,7 @@
 // ─── GOOGLE DRIVE SYNC ────────────────────────────────────────────
 const GD={
   CLIENT_ID:'',
+  API_KEY:'',
   SCOPE:'https://www.googleapis.com/auth/drive.file',
   FILE_NAME:'finance-os.json',
   fileId:null,
@@ -8,12 +9,13 @@ const GD={
   configured:false,
 };
 
-function gdConfigured(){return !!GD.CLIENT_ID;}
+function gdConfigured(){return GD.CLIENT_ID&&GD.API_KEY;}
 function gdStatus(){return localStorage.getItem('gd_token');}
 
 function gdInit(){
   const cid=localStorage.getItem('gd_client_id')||'';
-  GD.CLIENT_ID=cid;GD.configured=!!cid;
+  const key=localStorage.getItem('gd_api_key')||'';
+  GD.CLIENT_ID=cid;GD.API_KEY=key;GD.configured=!!(cid&&key);
   updateGDUI();
 }
 
@@ -40,8 +42,10 @@ function updateGDUI(){
 function gdConfigure(){
   const cid=prompt('Enter your Google Client ID:\n\n(Get it from console.cloud.google.com → APIs & Credentials → OAuth 2.0 Client IDs)','');
   if(!cid)return;
-  localStorage.setItem('gd_client_id',cid);
-  GD.CLIENT_ID=cid;GD.configured=true;
+  const key=prompt('Enter your Google API Key:\n\n(Same page → API Keys)','');
+  if(!key)return;
+  localStorage.setItem('gd_client_id',cid);localStorage.setItem('gd_api_key',key);
+  GD.CLIENT_ID=cid;GD.API_KEY=key;GD.configured=true;
   toast('Configured! Now click Connect.');updateGDUI();
 }
 
