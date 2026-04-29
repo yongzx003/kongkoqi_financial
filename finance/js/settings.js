@@ -24,9 +24,6 @@ function renderSettings(){
       <select id="fn-color-${v.id}" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);font-size:13px;outline:none;">
         ${['purple','teal','amber','info','pink','accent','danger'].map(c=>`<option value="${c}"${v.color===c?' selected':''}>${c}</option>`).join('')}
       </select>
-      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
-        <input type="checkbox" id="fn-roll-${v.id}" ${v.rollover?'checked':''} style="width:14px;height:14px;"/> Rollover
-      </label>
       <button class="btn btn-sm edit-save-btn" onclick="updatePctVault('${v.id}')">Save</button>
     </div>`).join('')||'<div style="font-size:13px;color:var(--muted);">No percentage vaults.</div>';
 
@@ -60,7 +57,7 @@ function addFixedVault(){
   const label=document.getElementById('fcN').value.trim();
   const amount=parseFloat(document.getElementById('fcA').value)||0;
   if(!label)return;
-  DB.vaults.push({id:uid(),name:label,fillMode:'fixed',pct:0,fixedAmount:amount,type:'spending',target:0,goalLabel:'',rollover:false,rule:'',color:'info',archived:false,current:0,deposits:[]});
+  DB.vaults.push({id:uid(),name:label,fillMode:'fixed',pct:0,fixedAmount:amount,type:'spending',target:0,goalLabel:'',rule:'',color:'info',archived:false,current:0,deposits:[]});
   save();toast('Fixed vault added');renderSettings();
   document.getElementById('fcN').value='';document.getElementById('fcA').value='';
 }
@@ -70,7 +67,6 @@ function updatePctVault(id){
   v.name=document.getElementById('fn-name-'+id).value.trim()||v.name;
   v.pct=parseInt(document.getElementById('fn-pct-'+id).value)||0;
   v.color=document.getElementById('fn-color-'+id).value;
-  v.rollover=document.getElementById('fn-roll-'+id).checked;
   save();toast('Vault saved');renderSettings();populateFundSelects();
 }
 
@@ -78,9 +74,8 @@ function addPctVault(){
   const name=document.getElementById('fnN').value.trim();
   const pct=parseInt(document.getElementById('fnP').value)||0;
   const color=document.getElementById('fnC').value;
-  const rollover=document.getElementById('fnR').checked;
   if(!name)return;
-  DB.vaults.push({id:uid(),name,fillMode:'percentage',pct,fixedAmount:0,type:'spending',target:0,goalLabel:'',rollover,rule:'',color,archived:false,current:0,deposits:[]});
+  DB.vaults.push({id:uid(),name,fillMode:'percentage',pct,fixedAmount:0,type:'spending',target:0,goalLabel:'',rule:'',color,archived:false,current:0,deposits:[]});
   save();toast('Vault added');renderSettings();
   document.getElementById('fnN').value='';document.getElementById('fnP').value='';
 }

@@ -185,11 +185,6 @@
           <option value="danger">Red</option>
         </select>
       </div>
-      <div class="fg" style="align-items:center;padding-top:16px;">
-        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-          <input type="checkbox" id="vRollover" style="width:14px;height:14px;"/> Rollover
-        </label>
-      </div>
       <div class="fg" style="justify-content:flex-end;">
         <button class="btn btn-p" onclick="addVault()">Add vault</button>
       </div>
@@ -277,6 +272,7 @@
     </div>
     <div class="sh">Decision rules</div>
     <div id="ruleEditor"></div>
+    <p style="font-size:11px;color:var(--muted);margin-top:8px;">Vault balances are running totals. Overspending shows as a negative balance and is automatically covered by the next deposit. Underspent amounts carry forward.</p>
   </div>
 
   <hr/>

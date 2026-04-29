@@ -1,15 +1,15 @@
 // ─── DEFAULT DATA ────────────────────────────────────────────────
 const DEFAULT = {
   vaults:[
-    {id:'needs',name:'Needs',fillMode:'fixed',pct:0,fixedAmount:625,type:'spending',target:0,goalLabel:'',rollover:false,rule:'',color:'danger',archived:false,current:0,deposits:[]},
-    {id:'wants',name:'Wants',fillMode:'fixed',pct:0,fixedAmount:125,type:'spending',target:0,goalLabel:'',rollover:false,rule:'',color:'pink',archived:false,current:0,deposits:[]},
-    {id:'unexpected',name:'Unexpected',fillMode:'percentage',pct:10,fixedAmount:0,type:'spending',target:0,goalLabel:'',rollover:true,rule:'Never touch unless: (1) Cannot be funded elsewhere, (2) Missing it has real cost, (3) Slept on decision 3+ days.',color:'info',archived:false,current:0,deposits:[]},
-    {id:'self',name:'Self-Investment',fillMode:'percentage',pct:30,fixedAmount:0,type:'spending',target:0,goalLabel:'',rollover:true,rule:'Does this make me look better, feel more confident, or improve my physical wellbeing? If yes, spend it.',color:'purple',archived:false,current:0,deposits:[]},
-    {id:'know',name:'Knowledge & Skill',fillMode:'percentage',pct:30,fixedAmount:0,type:'spending',target:0,goalLabel:'',rollover:true,rule:"Before buying, ask: 'Will I actually finish/use this within 30 days?' If yes, buy. If no, wait. Priority: 1) Directly applicable to current experiment 2) Improves freelance skill 3) General curiosity.",color:'teal',archived:false,current:0,deposits:[]},
-    {id:'oppexp',name:'Opportunity Experimental',fillMode:'percentage',pct:30,fixedAmount:0,type:'spending',target:0,goalLabel:'',rollover:true,rule:'One experiment per month max. Before spending, write: "I am testing whether ___." Rollover: unused balance accumulates for bigger experiments.',color:'amber',archived:false,current:0,deposits:[]},
-    {id:'invest',name:'Investment',fillMode:'percentage',pct:0,fixedAmount:0,type:'savings',target:0,goalLabel:'',rollover:true,rule:'Capital reserved for deploying into income-generating or appreciating assets. Deploy via the Assets page — do not spend directly.',color:'teal',archived:false,current:0,deposits:[]},
-    {id:'emergency',name:'Emergency fund',fillMode:'manual',pct:0,fixedAmount:0,type:'savings',target:3600,goalLabel:'',rollover:true,rule:'',color:'accent',archived:false,current:0,deposits:[]},
-    {id:'skin',name:'Skin fund',fillMode:'fixed',pct:0,fixedAmount:1000,type:'spending',target:7000,goalLabel:'Session',rollover:true,rule:'',color:'info',archived:false,current:0,deposits:[]},
+    {id:'needs',name:'Needs',fillMode:'fixed',pct:0,fixedAmount:625,type:'spending',target:0,goalLabel:'',rule:'',color:'danger',archived:false,current:0,deposits:[]},
+    {id:'wants',name:'Wants',fillMode:'fixed',pct:0,fixedAmount:125,type:'spending',target:0,goalLabel:'',rule:'',color:'pink',archived:false,current:0,deposits:[]},
+    {id:'unexpected',name:'Unexpected',fillMode:'percentage',pct:10,fixedAmount:0,type:'spending',target:0,goalLabel:'',rule:'Never touch unless: (1) Cannot be funded elsewhere, (2) Missing it has real cost, (3) Slept on decision 3+ days.',color:'info',archived:false,current:0,deposits:[]},
+    {id:'self',name:'Self-Investment',fillMode:'percentage',pct:30,fixedAmount:0,type:'spending',target:0,goalLabel:'',rule:'Does this make me look better, feel more confident, or improve my physical wellbeing? If yes, spend it.',color:'purple',archived:false,current:0,deposits:[]},
+    {id:'know',name:'Knowledge & Skill',fillMode:'percentage',pct:30,fixedAmount:0,type:'spending',target:0,goalLabel:'',rule:"Before buying, ask: 'Will I actually finish/use this within 30 days?' If yes, buy. If no, wait. Priority: 1) Directly applicable to current experiment 2) Improves freelance skill 3) General curiosity.",color:'teal',archived:false,current:0,deposits:[]},
+    {id:'oppexp',name:'Opportunity Experimental',fillMode:'percentage',pct:30,fixedAmount:0,type:'spending',target:0,goalLabel:'',rule:'One experiment per month max. Before spending, write: "I am testing whether ___." Unused balance accumulates for bigger experiments.',color:'amber',archived:false,current:0,deposits:[]},
+    {id:'invest',name:'Investment',fillMode:'percentage',pct:0,fixedAmount:0,type:'savings',target:0,goalLabel:'',rule:'Capital reserved for deploying into income-generating or appreciating assets. Deploy via the Assets page — do not spend directly.',color:'teal',archived:false,current:0,deposits:[]},
+    {id:'emergency',name:'Emergency fund',fillMode:'manual',pct:0,fixedAmount:0,type:'savings',target:3600,goalLabel:'',rule:'',color:'accent',archived:false,current:0,deposits:[]},
+    {id:'skin',name:'Skin fund',fillMode:'fixed',pct:0,fixedAmount:1000,type:'spending',target:7000,goalLabel:'Session',rule:'',color:'info',archived:false,current:0,deposits:[]},
   ],
   assets:[],
   income:[
@@ -186,7 +186,7 @@ function load(){
       const bal=f.balance||0;
       newVaults.push({
         id:newId,name:newName,fillMode:'percentage',pct:f.pct||0,fixedAmount:0,
-        type:'spending',target:0,goalLabel:'',rollover:f.rollover!==false,
+        type:'spending',target:0,goalLabel:'',
         rule:f.rule||'',color:f.color||'info',archived:false,
         current:bal,
         deposits:bal>0?[{id:uid(),type:'deposit',reason:'Migration: opening balance',amount:bal,date:today,source:'manual'}]:[]
@@ -203,7 +203,7 @@ function load(){
       const bal=fc.balance||0;
       newVaults.push({
         id:newId,name:fcNameRemap[fc.id]||fc.label,fillMode:'fixed',pct:0,
-        fixedAmount:fc.amount||0,type:'spending',target:0,goalLabel:'',rollover:false,
+        fixedAmount:fc.amount||0,type:'spending',target:0,goalLabel:'',
         rule:'',color:fcColorRemap[fc.id]||'info',archived:false,
         current:bal,
         deposits:bal>0?[{id:uid(),type:'deposit',reason:'Migration: opening balance',amount:bal,date:today,source:'manual'}]:[]
@@ -215,19 +215,19 @@ function load(){
     const vaultIdRemap={v1:'emergency',v2:'skin'};
     (DB.vaults||[]).forEach(v=>{
       const newId=vaultIdRemap[v.id]||v.id;
-      let fillMode,fixedAmount,pct,rollover,color,vType;
+      let fillMode,fixedAmount,pct,color,vType;
       if(newId==='emergency'){
-        fillMode='manual';fixedAmount=0;pct=0;rollover=true;color='accent';vType='savings';
+        fillMode='manual';fixedAmount=0;pct=0;color='accent';vType='savings';
       }else if(newId==='skin'){
         fillMode='fixed';fixedAmount=v.autoDeposit?v.autoDeposit.amount:1000;
-        pct=0;rollover=true;color='info';vType='spending';
+        pct=0;color='info';vType='spending';
       }else{
         fillMode='manual';fixedAmount=0;pct=0;
-        rollover=v.rollover!==false;color=v.color||'info';vType=v.type||'savings';
+        color=v.color||'info';vType=v.type||'savings';
       }
       const converted={
         id:newId,name:v.name,fillMode,pct,fixedAmount,type:vType,
-        target:v.target||0,goalLabel:v.goalLabel||'',rollover,rule:v.rule||'',
+        target:v.target||0,goalLabel:v.goalLabel||'',rule:v.rule||'',
         color,archived:false,current:v.current||0,deposits:v.deposits||[]
       };
       newVaults.push(converted);
@@ -237,7 +237,7 @@ function load(){
     // Add Investment vault
     newVaults.push({
       id:'invest',name:'Investment',fillMode:'percentage',pct:0,fixedAmount:0,
-      type:'savings',target:0,goalLabel:'',rollover:true,
+      type:'savings',target:0,goalLabel:'',
       rule:'Capital reserved for deploying into income-generating or appreciating assets. Deploy via the Assets page — do not spend directly.',
       color:'teal',archived:false,current:0,deposits:[]
     });

@@ -82,7 +82,6 @@ function renderVaults(){
         <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Label</div>
         <input id="ve-glabel-${v.id}" value="${v.goalLabel||''}" placeholder="e.g. Session" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;"/></div>
         <div style="display:flex;flex-direction:column;justify-content:flex-end;gap:6px;">
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="ve-roll-${v.id}" ${v.rollover?'checked':''} style="width:14px;height:14px;"/> Rollover</label>
           <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="ve-arch-${v.id}" ${v.archived?'checked':''} style="width:14px;height:14px;"/> Archived</label>
         </div>
       </div>
@@ -256,11 +255,10 @@ function addVault(){
   const pct=parseInt(document.getElementById('vPct')?.value)||0;
   const fixedAmount=parseFloat(document.getElementById('vFixedAmt')?.value)||0;
   const color=document.getElementById('vColor')?.value||'info';
-  const rollover=document.getElementById('vRollover')?.checked||false;
   if(!name)return;
   DB.vaults.push({
     id:uid(),name,fillMode,pct,fixedAmount,type,target:tgt,goalLabel,
-    rollover,rule:'',color,archived:false,current:0,deposits:[]
+    rule:'',color,archived:false,current:0,deposits:[]
   });
   save();toast('Vault added');renderVaults();
   document.getElementById('vN').value='';document.getElementById('vT').value='';
@@ -339,12 +337,11 @@ function saveVaultEdit(vid){
   const fixedAmount=parseFloat(document.getElementById('ve-fixed-'+vid)?.value)||0;
   const goalLabel=(document.getElementById('ve-glabel-'+vid)?.value||'').trim()||v.goalLabel||'Item';
   const color=document.getElementById('ve-color-'+vid)?.value||v.color;
-  const rollover=document.getElementById('ve-roll-'+vid)?.checked||false;
   const archived=document.getElementById('ve-arch-'+vid)?.checked||false;
   const rule=document.getElementById('ve-rule-'+vid)?.value||'';
   if(name)v.name=name;
   v.target=tgt;v.type=type;v.fillMode=fillMode;v.pct=pct;v.fixedAmount=fixedAmount;
-  v.goalLabel=goalLabel;v.color=color;v.rollover=rollover;v.archived=archived;v.rule=rule;
+  v.goalLabel=goalLabel;v.color=color;v.archived=archived;v.rule=rule;
   delete v._editing;
   save();toast('Vault updated');renderVaults();renderDashboard();
 }
