@@ -90,6 +90,7 @@ function renderDashboard(){
   const assetsDiv=document.getElementById('dashVaults');
   if(activeAssets.length){
     if(assetsSh)assetsSh.style.display='';
+    if(!assetsDiv)return;
     assetsDiv.innerHTML=activeAssets.map(a=>{
       const net=assetNet(a);
       return`<div class="card card-sm">

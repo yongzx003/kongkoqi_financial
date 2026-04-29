@@ -1,3 +1,17 @@
+// ─── RENDER MAP ───────────────────────────────────────────────────
+const renders={
+  dashboard:renderDashboard,
+  analytics:renderAnalytics,
+  income:renderIncome,
+  expenses:renderExpenses,
+  vaults:renderVaults,
+  assets:renderAssets,
+  claims:renderClaims,
+  notmine:renderNotmine,
+  settings:renderSettings,
+  bin:renderBin
+};
+
 // ─── NAVIGATION ──────────────────────────────────────────────────
 function go(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -47,20 +61,6 @@ function importData(event){
   };
   r.readAsText(file);event.target.value='';
 }
-
-// ─── RENDER MAP ───────────────────────────────────────────────────
-const renders={
-  dashboard:renderDashboard,
-  analytics:renderAnalytics,
-  income:renderIncome,
-  expenses:renderExpenses,
-  vaults:renderVaults,
-  assets:renderAssets,
-  claims:renderClaims,
-  notmine:renderNotmine,
-  settings:renderSettings,
-  bin:renderBin
-};
 
 // ─── MODAL ────────────────────────────────────────────────────────
 let _modalCb=null;
