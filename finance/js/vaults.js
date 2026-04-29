@@ -1,4 +1,6 @@
 // ─── VAULTS ──────────────────────────────────────────────────────
+function _recomputeV(v){v.current=v.deposits.reduce((s,d)=>s+(d.type==='withdrawal'?-Math.abs(d.amount):Math.abs(d.amount)),0);}
+
 function vaultTabSwitch(vid,tab){
   const df=document.getElementById('vdf-'+vid);
   const wf=document.getElementById('vwf-'+vid);
@@ -14,154 +16,235 @@ function vaultTabSwitch(vid,tab){
   }
 }
 
+function _fillModeBadge(v){
+  if(v.fillMode==='fixed')return`<span style="font-size:11px;background:var(--accent-l);color:var(--accent);padding:2px 8px;border-radius:20px;margin-left:6px;">↻ ${RM(v.fixedAmount)}/mo · Fixed</span>`;
+  if(v.fillMode==='percentage')return`<span style="font-size:11px;background:var(--info-l);color:var(--info);padding:2px 8px;border-radius:20px;margin-left:6px;">${v.pct}% · Percentage</span>`;
+  return`<span style="font-size:11px;background:var(--bg);border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:20px;margin-left:6px;">Manual only</span>`;
+}
+
+function toggleVaultMenu(vid){
+  document.querySelectorAll('.vault-menu').forEach(m=>{if(m.dataset.vault!==String(vid))m.style.display='none';});
+  const m=document.getElementById('vmenu-'+vid);
+  if(!m)return;
+  const wasOpen=m.style.display==='block';
+  m.style.display=wasOpen?'none':'block';
+  if(!wasOpen)setTimeout(()=>document.addEventListener('click',closeVaultMenus,{once:true}),0);
+}
+function closeVaultMenus(){document.querySelectorAll('.vault-menu').forEach(m=>{m.style.display='none';});}
+function toggleVaultForm(type,vid){
+  const dep=document.getElementById('vdf-'+vid);
+  const wd=document.getElementById('vwf-'+vid);
+  if(type==='dep'&&dep)dep.style.display=dep.style.display==='none'?'':'none';
+  else if(type==='wd'&&wd)wd.style.display=wd.style.display==='none'?'':'none';
+}
+
 function renderVaults(){
-  const abTotal=DB.funds.reduce((s,f)=>s+(f.balance||0),0);
-  const abCard=`<div class="card" style="border-left:3px solid var(--muted);opacity:.9;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <div>
-        <div style="font-size:15px;font-weight:500;">Asset bucket <span style="font-size:10px;background:var(--bg);border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:20px;margin-left:6px;">computed · read-only</span></div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px;">Sum of all fund balances — not a real vault</div>
+  const vaults=(DB.vaults||[]).filter(v=>!v.archived);
+  const archived=(DB.vaults||[]).filter(v=>v.archived);
+  const ss=`width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;`;
+  const m=cm();
+  const menuStyle=`position:absolute;top:34px;right:0;z-index:100;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);min-width:130px;box-shadow:0 4px 16px rgba(0,0,0,.12);padding:4px 0;`;
+  const menuItemStyle=`display:block;width:100%;text-align:left;padding:7px 14px;font-size:13px;background:none;border:none;cursor:pointer;color:var(--text);`;
+
+  const editFormFor=(v)=>`
+    <div class="inst-card" style="margin:0;box-shadow:none;border:none;padding:0;">
+      <div class="inst-card-title">Edit vault</div>
+      <div style="display:grid;grid-template-columns:1fr 140px;gap:12px;margin-bottom:12px;">
+        <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Name</div>
+        <input id="ve-name-${v.id}" value="${v.name}" style="width:100%;padding:8px 10px;border:1.5px solid var(--accent);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;"/></div>
+        <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Target (RM)</div>
+        <input type="number" id="ve-tgt-${v.id}" value="${v.target}" placeholder="0" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;font-family:'DM Mono',monospace;"/></div>
       </div>
-      <div style="font-size:22px;font-weight:500;font-family:'DM Mono',monospace;">${RM(abTotal)}</div>
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">${DB.funds.map(f=>`<div style="background:var(--bg);border-radius:var(--r-sm);padding:6px 10px;font-size:12px;">${badge(f.name,f.color)} <span style="font-family:'DM Mono',monospace;font-size:13px;margin-left:4px;">${RM(f.balance||0)}</span></div>`).join('')}</div>
-  </div>`;
-  document.getElementById('vaultList').innerHTML=abCard+DB.vaults.map(v=>{
-    const deps=(v.deposits||[]);
-    const allEntries=deps.slice().sort((a,b)=>b.id-a.id);
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Fill mode</div>
+        <select id="ve-fillMode-${v.id}" style="${ss}">
+          <option value="percentage"${v.fillMode==='percentage'?' selected':''}>Percentage of remainder</option>
+          <option value="fixed"${v.fillMode==='fixed'?' selected':''}>Fixed amount / month</option>
+          <option value="manual"${v.fillMode==='manual'?' selected':''}>Manual only</option>
+        </select></div>
+        <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Type</div>
+        <select id="ve-type-${v.id}" style="${ss}">
+          <option value="spending"${v.type==='spending'?' selected':''}>Spending</option>
+          <option value="savings"${v.type==='savings'?' selected':''}>Savings</option>
+        </select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">% allocation</div>
+        <input type="number" id="ve-pct-${v.id}" value="${v.pct||0}" min="0" max="100" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;font-family:'DM Mono',monospace;"/></div>
+        <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Fixed RM/mo</div>
+        <input type="number" id="ve-fixed-${v.id}" value="${v.fixedAmount||0}" min="0" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;font-family:'DM Mono',monospace;"/></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Color</div>
+        <select id="ve-color-${v.id}" style="${ss}">
+          ${['purple','teal','amber','info','pink','accent','danger'].map(c=>`<option value="${c}"${v.color===c?' selected':''}>${c}</option>`).join('')}
+        </select></div>
+        <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Label</div>
+        <input id="ve-glabel-${v.id}" value="${v.goalLabel||''}" placeholder="e.g. Session" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;"/></div>
+        <div style="display:flex;flex-direction:column;justify-content:flex-end;gap:6px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="ve-roll-${v.id}" ${v.rollover?'checked':''} style="width:14px;height:14px;"/> Rollover</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="ve-arch-${v.id}" ${v.archived?'checked':''} style="width:14px;height:14px;"/> Archived</label>
+        </div>
+      </div>
+      <div style="margin-bottom:12px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Decision rule (optional)</div>
+      <textarea id="ve-rule-${v.id}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;font-family:'DM Sans',sans-serif;resize:vertical;min-height:54px;">${v.rule||''}</textarea></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn" onclick="cancelVaultEdit('${v.id}')">Cancel</button>
+        <button class="btn edit-save-btn" onclick="saveVaultEdit('${v.id}')">Save changes</button>
+      </div>
+    </div>`;
+
+  const cards=vaults.map(v=>{
     const{totalDeposited,totalUsed,current,pct}=vaultStats(v);
-    v.current=current;
+    _recomputeV(v);
     const isSpending=v.type==='spending';
-    const cls=pct===null?'p-safe':pct>=100?'p-safe':isSpending?'p-safe':'p-warn';
+    const isDeployOnly=v.type==='savings'&&v.fillMode==='percentage';
+    const used=spentThisMonth(v.id,m);
+    const budget=monthlyBudget(v.id);
+    const overBudget=budget>0&&used>budget;
+    const savPct=v.target>0?Math.min(100,Math.round(v.current/v.target*100)):null;
+    const budPct=budget>0?Math.min(100,Math.round(used/budget*100)):0;
+    const budCls=budPct>90?'p-danger':budPct>70?'p-warn':'p-safe';
 
     if(v._editing){
-      return`<div class="card" style="border-left:3px solid var(--accent);">
-        <div class="inst-card" style="margin:0;box-shadow:none;border:none;padding:0;">
-          <div class="inst-card-title">Edit vault</div>
-          <div style="display:grid;grid-template-columns:1fr 140px;gap:12px;margin-bottom:12px;">
-            <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Vault name</div>
-            <input id="ve-name-${v.id}" value="${v.name}" style="width:100%;padding:8px 10px;border:1.5px solid var(--accent);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;box-shadow:0 0 0 3px rgba(45,90,61,0.08);"/></div>
-            <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Target (RM)</div>
-            <input type="number" id="ve-tgt-${v.id}" value="${v.target}" placeholder="0 = no target" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;font-family:'DM Mono',monospace;"/></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-            <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Type</div>
-            <select id="ve-type-${v.id}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;">
-              <option value="savings"${v.type==='savings'?' selected':''}>Savings — save up toward target</option>
-              <option value="spending"${v.type==='spending'?' selected':''}>Spending — draw down a budget</option>
-            </select></div>
-            <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Label (for spending vaults)</div>
-            <input id="ve-glabel-${v.id}" value="${v.goalLabel||''}" placeholder="e.g. Session" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;"/></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-            <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Monthly auto-deposit (RM)</div>
-            <input type="number" id="ve-auto-${v.id}" value="${v.autoDeposit?v.autoDeposit.amount:''}" placeholder="0 = none" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;font-family:'DM Mono',monospace;"/></div>
-            <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Auto-deposit label</div>
-            <input id="ve-autoRsn-${v.id}" value="${v.autoDeposit?v.autoDeposit.reason:''}" placeholder="e.g. Monthly savings" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;"/></div>
-          </div>
-          <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button class="btn" onclick="cancelVaultEdit('${v.id}')">Cancel</button>
-            <button class="btn edit-save-btn" onclick="saveVaultEdit('${v.id}')">Save changes</button>
-          </div>
-        </div>
-      </div>`;
+      return`<div class="card" style="border-top:3px solid var(--accent);">${editFormFor(v)}</div>`;
     }
 
-    // Auto-deposit badge
-    const autoDepBadge=v.autoDeposit
-      ?`<span style="font-size:11px;background:var(--accent-l);color:var(--accent);padding:2px 8px;border-radius:20px;margin-left:6px;">↻ ${RM(v.autoDeposit.amount)}/mo</span>`:'';
+    // Source/dest dropdowns for forms
+    const otherVaults=(DB.vaults||[]).filter(x=>!x.archived&&x.id!==v.id);
+    const srcOpts='<option value="external">External / new money</option>'+otherVaults.map(x=>`<option value="${x.id}">${x.name} (${RM(x.current)})</option>`).join('');
+    const dstOpts='<option value="external">External (remove from books)</option>'+otherVaults.map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
 
-    // Deposit/Withdraw forms — split by vault type
-    const fundSrcOpts=`<option value="external">External / new money</option>`+DB.funds.map(f=>`<option value="${f.id}">${f.name} (${RM(f.balance||0)})</option>`).join('');
-    const fundDstOpts=`<option value="external">External (remove from books)</option>`+DB.funds.map(f=>`<option value="${f.id}">${f.name}</option>`).join('');
-    const selectStyle=`width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;`;
-    let actionForms;
-    if(isSpending){
-      // Spending vault: small deposit form; withdraw is done via Expenses page
-      actionForms=`<div class="inst-card" style="margin-top:12px;">
-        <div class="inst-card-title" style="margin-bottom:8px;">Add deposit <span style="font-size:11px;color:var(--muted);font-weight:400;">· Withdraw via Expenses page</span></div>
-        <div style="display:grid;grid-template-columns:140px 1fr 1fr;gap:10px;margin-bottom:10px;">
-          <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Amount (RM)</div>
-          <input type="number" id="vd-amt-${v.id}" placeholder="0" style="width:100%;padding:8px 10px;border:1.5px solid var(--accent);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:14px;font-weight:500;outline:none;font-family:'DM Mono',monospace;box-shadow:0 0 0 3px rgba(45,90,61,0.08);"/></div>
-          <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Reason (optional)</div>
-          <input type="text" id="vd-rsn-${v.id}" placeholder="e.g. Monthly top-up" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;"/></div>
-          <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Deposit from <span style="color:var(--danger);">*</span></div>
-          <select id="vd-src-${v.id}" style="${selectStyle}">${fundSrcOpts}</select></div>
-        </div>
-        <div style="display:flex;justify-content:flex-end;"><button class="btn edit-save-btn" onclick="vaultDeposit('${v.id}')">Deposit</button></div>
-      </div>`;
-    }else{
-      // Savings vault: tabbed Deposit / Withdraw
-      actionForms=`<div class="inst-card" style="margin-top:12px;">
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <button id="vtab-dep-${v.id}" class="btn btn-sm edit-save-btn" onclick="vaultTabSwitch('${v.id}','deposit')">+ Deposit</button>
-          <button id="vtab-wd-${v.id}" class="btn btn-sm" style="border-color:var(--danger);color:var(--danger);" onclick="vaultTabSwitch('${v.id}','withdraw')">− Withdraw</button>
-        </div>
-        <div id="vdf-${v.id}">
-          <div style="display:grid;grid-template-columns:140px 1fr 1fr;gap:12px;margin-bottom:12px;">
-            <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Amount (RM)</div>
-            <input type="number" id="vd-amt-${v.id}" placeholder="0" style="width:100%;padding:8px 10px;border:1.5px solid var(--accent);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:14px;font-weight:500;outline:none;font-family:'DM Mono',monospace;box-shadow:0 0 0 3px rgba(45,90,61,0.08);"/></div>
-            <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Reason (optional)</div>
-            <input type="text" id="vd-rsn-${v.id}" placeholder="e.g. Monthly savings" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;"/></div>
-            <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Deposit from <span style="color:var(--danger);">*</span></div>
-            <select id="vd-src-${v.id}" style="${selectStyle}">${fundSrcOpts}</select></div>
-          </div>
-          <div style="display:flex;justify-content:flex-end;"><button class="btn edit-save-btn" onclick="vaultDeposit('${v.id}')">Deposit</button></div>
-        </div>
-        <div id="vwf-${v.id}" style="display:none;">
-          <div style="display:grid;grid-template-columns:140px 1fr 1fr;gap:12px;margin-bottom:12px;">
-            <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Amount (RM)</div>
-            <input type="number" id="vw-amt-${v.id}" placeholder="0" style="width:100%;padding:8px 10px;border:1.5px solid var(--danger);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:14px;font-weight:500;outline:none;font-family:'DM Mono',monospace;"/></div>
-            <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Reason <span style="color:var(--danger);">*</span></div>
-            <input type="text" id="vw-rsn-${v.id}" placeholder="Required — why are you withdrawing?" style="width:100%;padding:8px 10px;border:1.5px solid var(--danger);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;"/></div>
-            <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Withdraw to <span style="color:var(--danger);">*</span></div>
-            <select id="vw-dst-${v.id}" style="${selectStyle}">${fundDstOpts}</select></div>
-          </div>
-          <div style="display:flex;justify-content:flex-end;"><button class="btn btn-d" onclick="vaultWithdraw('${v.id}')">Withdraw from savings</button></div>
-        </div>
-      </div>`;
-    }
+    // Deposit form (all vault types)
+    const depForm=`<div id="vdf-${v.id}" style="display:none;margin-top:10px;padding:10px;background:var(--bg);border-radius:var(--r-sm);border:1px solid var(--border);">
+      <div style="display:grid;grid-template-columns:120px 1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Amount (RM)</div>
+        <input type="number" id="vd-amt-${v.id}" placeholder="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--accent);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;font-family:'DM Mono',monospace;"/></div>
+        <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Reason (optional)</div>
+        <input type="text" id="vd-rsn-${v.id}" placeholder="e.g. Top-up" style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;"/></div>
+        <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">From</div>
+        <select id="vd-src-${v.id}" style="${ss}">${srcOpts}</select></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:6px;">
+        <button class="btn btn-sm" onclick="toggleVaultForm('dep','${v.id}')">Cancel</button>
+        <button class="btn btn-sm edit-save-btn" onclick="vaultDeposit('${v.id}')">Deposit</button>
+      </div>
+    </div>`;
 
-    // History table
-    const histTable=allEntries.length?`<div style="margin-top:14px;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r-sm);">
+    // Withdraw form (savings non-deploy only)
+    const wdForm=!isDeployOnly&&!isSpending?`<div id="vwf-${v.id}" style="display:none;margin-top:10px;padding:10px;background:var(--bg);border-radius:var(--r-sm);border:1px solid var(--danger);">
+      <div style="display:grid;grid-template-columns:120px 1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Amount (RM)</div>
+        <input type="number" id="vw-amt-${v.id}" placeholder="0" style="width:100%;padding:7px 8px;border:1.5px solid var(--danger);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;font-family:'DM Mono',monospace;"/></div>
+        <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Reason *</div>
+        <input type="text" id="vw-rsn-${v.id}" placeholder="Required" style="width:100%;padding:7px 8px;border:1.5px solid var(--danger);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13px;outline:none;"/></div>
+        <div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">To</div>
+        <select id="vw-dst-${v.id}" style="${ss}">${dstOpts}</select></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:6px;">
+        <button class="btn btn-sm" onclick="toggleVaultForm('wd','${v.id}')">Cancel</button>
+        <button class="btn btn-sm btn-d" onclick="vaultWithdraw('${v.id}')">Withdraw</button>
+      </div>
+    </div>`:'';
+
+    const histTable=(v.deposits||[]).length?`<div style="margin-top:12px;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r-sm);">
       <table style="font-size:12px;"><thead><tr><th>#</th><th>Type</th><th>Reason</th><th>Amount</th><th>Date</th><th></th></tr></thead><tbody>
-      ${allEntries.map((e,i)=>`<tr>
-        <td class="td-m" style="color:var(--muted);">${allEntries.length-i}</td>
+      ${(v.deposits||[]).slice().sort((a,b)=>(b.id>a.id?1:-1)).map((e,i,arr)=>`<tr>
+        <td class="td-m" style="color:var(--muted);">${arr.length-i}</td>
         <td><span style="font-size:11px;padding:2px 7px;border-radius:20px;background:${e.type==='deposit'?'var(--accent-l)':'var(--warn-l)'};color:${e.type==='deposit'?'var(--accent)':'var(--warn)'};">${e.type==='withdrawal'?'Used':'Deposit'}</span></td>
         <td>${e.reason||'—'}</td>
-        <td class="td-m" style="color:${e.type==='withdrawal'?'var(--danger)':''}"> ${RM(Math.abs(e.amount))}</td>
+        <td class="td-m" style="color:${e.type==='withdrawal'?'var(--danger)':''};">${RM(Math.abs(e.amount))}</td>
         <td class="td-m" style="color:var(--muted);">${e.date||''}</td>
         <td><button class="btn btn-xs btn-d" onclick="delVaultDeposit('${v.id}','${e.id}')">Del</button></td>
       </tr>`).join('')}
-      </tbody></table></div>`:'';
+      </tbody></table></div>`:'<div style="font-size:12px;color:var(--muted);margin-top:8px;">No transactions yet.</div>';
 
-    const typeTag=isSpending
-      ?`<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--info-l);color:var(--info);margin-left:6px;">${v.goalLabel||'spending'} tracking</span>`
-      :`<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--accent-l);color:var(--accent);margin-left:6px;">savings</span>`;
+    // Compact body: balance summary always visible
+    let bodyHtml='';
+    if(isSpending){
+      bodyHtml=`<div style="font-size:14px;font-weight:600;font-family:'DM Mono',monospace;margin-bottom:4px;">${RM(v.current)}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:${budget>0?6:0}px;">available${v.target>0?` · ${RM(v.target)} target`:''}</div>
+        ${budget>0?`<div style="font-size:12px;margin-bottom:4px;color:${overBudget?'var(--danger)':'var(--muted)'};">${RM(used)} used this month · ${RM(budget)} budget${overBudget?` · over by ${RM(used-budget)}`:''}</div>`:''}
+        ${v.target>0?`<div class="prog-wrap" style="margin-bottom:2px;"><div class="prog p-safe" style="width:${savPct}%"></div></div>`:''}`;
+    }else{
+      bodyHtml=`<div style="font-size:14px;font-weight:600;font-family:'DM Mono',monospace;margin-bottom:4px;">${RM(v.current)}${v.target>0?' / '+RM(v.target):''}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:${v.target>0?6:0}px;">saved${totalUsed>0?` · <span style="color:var(--danger);">${RM(totalUsed)} used</span>`:''}</div>
+        ${savPct!==null?`<div class="prog-wrap"><div class="prog p-safe" style="width:${savPct}%"></div></div>`:''}`;
+    }
 
-    return`<div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div>
-          <div style="font-size:15px;font-weight:500;">${v.name}${typeTag}${autoDepBadge}</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px;">
-            ${isSpending
-              ?`<span style="color:var(--accent);font-weight:500;">${RM(totalUsed)}</span> used${v.target>0?' of '+RM(v.target):''} · <span style="color:var(--text);">${RM(current)}</span> remaining`
-              :`<span style="color:var(--text);font-weight:500;">${RM(current)}</span> saved${v.target>0?' of '+RM(v.target):''}`
-            }
-            ${totalUsed>0&&!isSpending?`· <span style="color:var(--danger);">${RM(totalUsed)} used</span>`:''}
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          ${pct!==null?`<span style="font-size:20px;font-weight:500;font-family:'DM Mono',monospace;">${pct}%</span>`:''}
-          <button class="btn btn-sm" onclick="startVaultEdit('${v.id}')">Edit</button>
-          <button class="btn btn-sm btn-d" onclick="delVault('${v.id}')">Delete</button>
+    // Action buttons inside expanded section
+    let actionBtns='';
+    if(isDeployOnly){
+      actionBtns=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+        <button class="btn btn-sm edit-save-btn" onclick="toggleVaultForm('dep','${v.id}')">+ Deposit</button>
+        <span style="font-size:12px;color:var(--muted);">To withdraw, deploy via <a href="#" onclick="go('assets');return false;" style="color:var(--accent);">Assets</a></span>
+      </div>`;
+    }else if(isSpending){
+      actionBtns=`<div style="margin-top:10px;"><button class="btn btn-sm edit-save-btn" onclick="toggleVaultForm('dep','${v.id}')">+ Add deposit</button></div>`;
+    }else{
+      actionBtns=`<div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-sm edit-save-btn" onclick="toggleVaultForm('dep','${v.id}')">+ Deposit</button>
+        <button class="btn btn-sm" style="color:var(--danger);border-color:var(--danger);" onclick="toggleVaultForm('wd','${v.id}')">− Withdraw</button>
+      </div>`;
+    }
+
+    const menuHtml=`<div id="vmenu-${v.id}" class="vault-menu" data-vault="${v.id}" style="display:none;${menuStyle}">
+      <button style="${menuItemStyle}" onclick="startVaultEdit('${v.id}');closeVaultMenus()">Edit</button>
+      <button style="${menuItemStyle}" onclick="archiveVault('${v.id}');closeVaultMenus()">Archive</button>
+      <button style="${menuItemStyle}color:var(--danger);" onclick="delVault('${v.id}');closeVaultMenus()">Delete</button>
+    </div>`;
+
+    return`<div class="card" style="position:relative;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:500;flex:1;min-width:0;">${badge(v.name,v.color)}${_fillModeBadge(v)}</div>
+        <div style="position:relative;flex-shrink:0;margin-left:8px;">
+          <button class="btn btn-sm" onclick="event.stopPropagation();toggleVaultMenu('${v.id}')" style="padding:4px 9px;font-size:15px;line-height:1;">⋯</button>
+          ${menuHtml}
         </div>
       </div>
-      ${pct!==null?`<div class="prog-wrap"><div class="prog ${cls}" style="width:${pct}%"></div></div>`:''}
-      ${actionForms}
-      ${histTable}
+      ${bodyHtml}
+      <details style="margin-top:10px;">
+        <summary style="list-style:none;cursor:pointer;font-size:12px;color:var(--accent);user-select:none;outline:none;">▸ Details</summary>
+        ${v.rule?`<div style="font-size:12px;color:var(--muted);margin-top:10px;padding:8px 10px;background:var(--bg);border-radius:var(--r-sm);border-left:2px solid var(--border);">${v.rule}</div>`:''}
+        ${actionBtns}
+        ${depForm}
+        ${wdForm}
+        ${histTable}
+      </details>
     </div>`;
   }).join('');
+
+  // Archived section
+  const archivedHtml=archived.length?`
+    <details style="margin-top:20px;">
+      <summary style="font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;padding:8px 0;list-style:none;">Archived vaults (${archived.length})</summary>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:12px;">
+        ${archived.map(v=>`<div class="card card-sm" style="opacity:.7;position:relative;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>${badge(v.name,v.color)} <span style="font-size:12px;color:var(--muted);margin-left:6px;">${RM(v.current)}</span></div>
+            <button class="btn btn-sm" onclick="unarchiveVault('${v.id}')">Unarchive</button>
+          </div>
+        </div>`).join('')}
+      </div>
+    </details>`:'';
+
+  document.getElementById('vaultList').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;">${cards}</div>${archivedHtml}`;
+}
+
+function archiveVault(vid){
+  const v=(DB.vaults||[]).find(x=>x.id===vid);if(!v)return;
+  v.archived=true;
+  // Warn if this upsets the 100% allocation
+  if(v.fillMode==='percentage'){
+    const pctSum=(DB.vaults||[]).filter(x=>x.fillMode==='percentage'&&!x.archived).reduce((s,x)=>s+x.pct,0);
+    if(pctSum!==100)toast('⚠ Percentage allocations now sum to '+pctSum+'% — rebalance on Settings page');
+  }
+  save();toast(v.name+' archived');renderVaults();
+}
+function unarchiveVault(vid){
+  const v=(DB.vaults||[]).find(x=>x.id===vid);if(!v)return;
+  v.archived=false;
+  save();toast(v.name+' unarchived');renderVaults();
 }
 
 function addVault(){
@@ -169,91 +252,106 @@ function addVault(){
   const tgt=parseFloat(document.getElementById('vT').value)||0;
   const type=document.getElementById('vType').value;
   const goalLabel=document.getElementById('vGoalLabel').value.trim()||'Item';
-  const autoAmt=parseFloat(document.getElementById('vAutoDeposit').value)||0;
+  const fillMode=document.getElementById('vFillMode')?.value||'manual';
+  const pct=parseInt(document.getElementById('vPct')?.value)||0;
+  const fixedAmount=parseFloat(document.getElementById('vFixedAmt')?.value)||0;
+  const color=document.getElementById('vColor')?.value||'info';
+  const rollover=document.getElementById('vRollover')?.checked||false;
   if(!name)return;
-  const newVault={id:'v'+uid(),name,current:0,target:tgt,type,goalLabel,deposits:[]};
-  if(autoAmt>0)newVault.autoDeposit={type:'fixed',amount:autoAmt,reason:name+' monthly auto-deposit'};
-  DB.vaults.push(newVault);
+  DB.vaults.push({
+    id:uid(),name,fillMode,pct,fixedAmount,type,target:tgt,goalLabel,
+    rollover,rule:'',color,archived:false,current:0,deposits:[]
+  });
   save();toast('Vault added');renderVaults();
   document.getElementById('vN').value='';document.getElementById('vT').value='';
-  document.getElementById('vType').value='savings';document.getElementById('vGoalLabel').value='';
-  document.getElementById('vAutoDeposit').value='';
+  if(document.getElementById('vPct'))document.getElementById('vPct').value='';
+  if(document.getElementById('vFixedAmt'))document.getElementById('vFixedAmt').value='';
 }
 
 function vaultDeposit(vid){
-  const v=DB.vaults.find(x=>x.id===vid);if(!v)return;
+  const v=(DB.vaults||[]).find(x=>x.id===vid);if(!v)return;
   const amt=parseFloat(document.getElementById('vd-amt-'+vid).value);
   const rsn=document.getElementById('vd-rsn-'+vid).value.trim();
   const src=document.getElementById('vd-src-'+vid)?.value||'external';
   if(!amt||amt<=0)return toast('Enter a positive amount');
   let autoRsn='Deposit';
   if(src!=='external'){
-    const f=DB.funds.find(x=>x.id===src);
-    if(!f)return toast('Source fund not found');
-    if((f.balance||0)<amt)return toast('Insufficient balance in '+f.name+' ('+RM(f.balance||0)+')');
-    f.balance=Math.round(((f.balance||0)-amt)*100)/100;
-    autoRsn='From '+f.name;
+    const srcV=(DB.vaults||[]).find(x=>x.id===src);
+    if(!srcV)return toast('Source vault not found');
+    if((srcV.current||0)<amt)return toast('Insufficient balance in '+srcV.name+' ('+RM(srcV.current||0)+')');
+    srcV.deposits.push({id:uid(),type:'withdrawal',reason:'Transfer to '+v.name,amount:Math.abs(amt),date:new Date().toISOString().slice(0,10),destination:vid});
+    _recomputeV(srcV);
+    autoRsn='From '+srcV.name;
   }
   if(!v.deposits)v.deposits=[];
   v.deposits.push({id:uid(),type:'deposit',reason:rsn||autoRsn,amount:Math.abs(amt),date:new Date().toISOString().slice(0,10),source:src});
-  v.current=v.deposits.reduce((s,d)=>s+(d.type==='withdrawal'?-Math.abs(d.amount):Math.abs(d.amount)),0);
+  _recomputeV(v);
   document.getElementById('vd-amt-'+vid).value='';
   document.getElementById('vd-rsn-'+vid).value='';
-  save();toast('Deposited '+RM(amt)+(src!=='external'?' from '+(DB.funds.find(x=>x.id===src)?.name||src):''));renderVaults();renderDashboard();
+  save();toast('Deposited '+RM(amt)+(src!=='external'?' from '+(vaultById(src)?.name||src):''));renderVaults();renderDashboard();
 }
 
 function vaultWithdraw(vid){
-  const v=DB.vaults.find(x=>x.id===vid);if(!v)return;
+  const v=(DB.vaults||[]).find(x=>x.id===vid);if(!v)return;
   const amt=parseFloat(document.getElementById('vw-amt-'+vid).value);
   const rsn=document.getElementById('vw-rsn-'+vid).value.trim();
   const dst=document.getElementById('vw-dst-'+vid)?.value||'external';
   if(!amt||amt<=0)return toast('Enter a positive amount');
   if(!rsn)return toast('A reason is required for withdrawals');
-  const destName=dst==='external'?'external':(DB.funds.find(x=>x.id===dst)?.name||dst);
-  const doWithdraw=()=>{
-    if(!v.deposits)v.deposits=[];
-    v.deposits.push({id:uid(),type:'withdrawal',reason:rsn,amount:Math.abs(amt),date:new Date().toISOString().slice(0,10),destination:dst});
-    v.current=v.deposits.reduce((s,d)=>s+(d.type==='withdrawal'?-Math.abs(d.amount):Math.abs(d.amount)),0);
-    if(dst!=='external'){
-      const f=DB.funds.find(x=>x.id===dst);
-      if(f)f.balance=Math.round(((f.balance||0)+amt)*100)/100;
-    }
-    document.getElementById('vw-amt-'+vid).value='';
-    document.getElementById('vw-rsn-'+vid).value='';
-    save();toast('Withdrawn '+RM(amt)+(dst!=='external'?' → '+destName:''));renderVaults();renderDashboard();
-  };
+  const destName=dst==='external'?'external':(vaultById(dst)?.name||dst);
   showConfirm(
-    'Withdraw from savings vault?',
+    'Withdraw from vault?',
     `Withdraw ${RM(amt)} from "${v.name}" → ${destName}? Reason: ${rsn}`,
-    doWithdraw
+    ()=>{
+      v.deposits.push({id:uid(),type:'withdrawal',reason:rsn,amount:Math.abs(amt),date:new Date().toISOString().slice(0,10),destination:dst});
+      _recomputeV(v);
+      if(dst!=='external'){
+        const dstV=(DB.vaults||[]).find(x=>x.id===dst);
+        if(dstV){dstV.deposits.push({id:uid(),type:'deposit',reason:'Transfer from '+v.name,amount:Math.abs(amt),date:new Date().toISOString().slice(0,10),source:vid});_recomputeV(dstV);}
+      }
+      document.getElementById('vw-amt-'+vid).value='';
+      document.getElementById('vw-rsn-'+vid).value='';
+      save();toast('Withdrawn '+RM(amt)+(dst!=='external'?' → '+destName:''));renderVaults();renderDashboard();
+    }
   );
 }
 
 function delVaultDeposit(vid,did){
-  const v=DB.vaults.find(x=>x.id===vid);if(!v)return;
+  const v=(DB.vaults||[]).find(x=>x.id===vid);if(!v)return;
   const entry=v.deposits.find(d=>d.id==did);
   const label=entry?.type==='withdrawal'?'withdrawal':'deposit';
   showConfirm('Delete '+label+'?','The vault balance will be adjusted accordingly.',()=>{
     v.deposits=(v.deposits||[]).filter(d=>d.id!=did);
-    v.current=v.deposits.reduce((s,d)=>s+(d.type==='withdrawal'?-Math.abs(d.amount):Math.abs(d.amount)),0);
+    _recomputeV(v);
     save();toast('Removed');renderVaults();renderDashboard();
   });
 }
-function startVaultEdit(vid){const v=DB.vaults.find(x=>x.id===vid);if(v){v._editing=true;renderVaults();}}
-function cancelVaultEdit(vid){const v=DB.vaults.find(x=>x.id===vid);if(v){delete v._editing;renderVaults();}}
+
+function startVaultEdit(vid){const v=(DB.vaults||[]).find(x=>x.id===vid);if(v){v._editing=true;renderVaults();}}
+function cancelVaultEdit(vid){const v=(DB.vaults||[]).find(x=>x.id===vid);if(v){delete v._editing;renderVaults();}}
 function saveVaultEdit(vid){
-  const v=DB.vaults.find(x=>x.id===vid);if(!v)return;
+  const v=(DB.vaults||[]).find(x=>x.id===vid);if(!v)return;
   const name=document.getElementById('ve-name-'+vid).value.trim();
   const tgt=parseFloat(document.getElementById('ve-tgt-'+vid).value)||0;
-  const type=document.getElementById('ve-type-'+vid)?document.getElementById('ve-type-'+vid).value:v.type||'savings';
-  const goalLabel=document.getElementById('ve-glabel-'+vid)?document.getElementById('ve-glabel-'+vid).value.trim()||'Item':v.goalLabel||'Item';
-  const autoAmt=parseFloat(document.getElementById('ve-auto-'+vid)?.value)||0;
-  const autoRsn=(document.getElementById('ve-autoRsn-'+vid)?.value||'').trim();
+  const type=document.getElementById('ve-type-'+vid)?.value||v.type;
+  const fillMode=document.getElementById('ve-fillMode-'+vid)?.value||v.fillMode;
+  const pct=parseInt(document.getElementById('ve-pct-'+vid)?.value)||0;
+  const fixedAmount=parseFloat(document.getElementById('ve-fixed-'+vid)?.value)||0;
+  const goalLabel=(document.getElementById('ve-glabel-'+vid)?.value||'').trim()||v.goalLabel||'Item';
+  const color=document.getElementById('ve-color-'+vid)?.value||v.color;
+  const rollover=document.getElementById('ve-roll-'+vid)?.checked||false;
+  const archived=document.getElementById('ve-arch-'+vid)?.checked||false;
+  const rule=document.getElementById('ve-rule-'+vid)?.value||'';
   if(name)v.name=name;
-  v.target=tgt;v.type=type;v.goalLabel=goalLabel;
-  if(autoAmt>0){v.autoDeposit={type:'fixed',amount:autoAmt,reason:autoRsn||v.name+' monthly auto-deposit'};}
-  else{delete v.autoDeposit;}
+  v.target=tgt;v.type=type;v.fillMode=fillMode;v.pct=pct;v.fixedAmount=fixedAmount;
+  v.goalLabel=goalLabel;v.color=color;v.rollover=rollover;v.archived=archived;v.rule=rule;
   delete v._editing;
   save();toast('Vault updated');renderVaults();renderDashboard();
 }
-function delVault(vid){showConfirm('Delete vault?','Item will move to recycle bin.',()=>{const v=DB.vaults.find(x=>x.id===vid);if(!v)return;DB.vaults=DB.vaults.filter(x=>x.id!==vid);trashIt('vault',v,()=>{});save();toast('Moved to bin');renderVaults();renderDashboard();});}
+
+function delVault(vid){showConfirm('Delete vault?','Item will move to recycle bin.',()=>{
+  const v=(DB.vaults||[]).find(x=>x.id===vid);if(!v)return;
+  DB.vaults=DB.vaults.filter(x=>x.id!==vid);
+  trashIt('vault',v,()=>{});
+  save();toast('Moved to bin');renderVaults();renderDashboard();
+});}

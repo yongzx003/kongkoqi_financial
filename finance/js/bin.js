@@ -14,7 +14,6 @@ function updateBinCount(){
 }
 
 function renderBin(){
-  // Auto-expire items older than 30 days
   const thirtyDaysAgo=Date.now()-(30*24*60*60*1000);
   const expired=(DB.trash||[]).filter(t=>new Date(t.deletedAt).getTime()<thirtyDaysAgo);
   if(expired.length){DB.trash=DB.trash.filter(t=>new Date(t.deletedAt).getTime()>=thirtyDaysAgo);save();}
@@ -28,7 +27,7 @@ function renderBin(){
     return;
   }
 
-  const typeLabel={expense:'Expense',income:'Income',vault:'Vault',claim:'Claim',notmine:'Not my money'};
+  const typeLabel={expense:'Expense',income:'Income',vault:'Vault',claim:'Claim',notmine:'Not my money',asset:'Asset'};
   const html=filtered.map(entry=>{
     const item=entry.item;
     let preview='';
@@ -37,7 +36,7 @@ function renderBin(){
     else if(entry.type==='vault') preview=`${item.name} — ${RM(item.current)}`;
     else if(entry.type==='claim') preview=`${item.name} — ${RM(item.amount)} from ${item.from}`;
     else if(entry.type==='notmine') preview=`${item.name} — ${RM(item.total)} for ${item['for']}`;
-    else if(entry.type==='networth') preview=`Net worth snapshot — ${RM(item.amount)} (${mlabel(item.month)})`;
+    else if(entry.type==='asset') preview=`${item.name} — ${(item.ledger||[]).length} ledger entries`;
     const deletedDate=new Date(entry.deletedAt).toLocaleDateString('default',{day:'numeric',month:'short',year:'numeric'});
     return`<div class="card card-sm" style="margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
       <div style="flex:1;">
@@ -60,21 +59,16 @@ function restoreItem(trashId){
   const entry=(DB.trash||[]).find(t=>t.id==trashId);
   if(!entry)return;
   const item=entry.item;
-  // Restore based on type
+
   if(entry.type==='expense'){
     DB.expenses.push(item);
-    if(item.fund&&item.fund.startsWith('vault:')){
-      const v=DB.vaults.find(x=>x.id===item.fund.replace('vault:',''));
-      if(v&&item.amount<=0||v){
-        v.deposits.push({id:uid(),type:'withdrawal',reason:item.name,amount:item.amount,date:item.date||new Date().toISOString().slice(0,10)});
-        v.current=v.deposits.reduce((s,d)=>s+(d.type==='withdrawal'?-Math.abs(d.amount):Math.abs(d.amount)),0);
-      }
-    } else {
-      const f=fundById(item.fund);
-      if(f)f.balance=(f.balance||0)-item.amount;
+    // Restore withdrawal to vault (if vault still exists)
+    const v=(DB.vaults||[]).find(x=>x.id===item.fund);
+    if(v){
+      v.deposits.push({id:uid(),type:'withdrawal',reason:item.name,amount:item.amount,date:item.date||new Date().toISOString().slice(0,10)});
+      v.current=v.deposits.reduce((s,d)=>s+(d.type==='withdrawal'?-Math.abs(d.amount):Math.abs(d.amount)),0);
     }
-    save();toast('Expense restored');
-    renderExpenses();renderDashboard();
+    save();toast('Expense restored');renderExpenses();renderDashboard();
   } else if(entry.type==='income'){
     DB.income.push(item);
     save();toast('Income restored');renderIncome();renderDashboard();
@@ -84,14 +78,27 @@ function restoreItem(trashId){
   } else if(entry.type==='claim'){
     DB.claims.push(item);
     save();toast('Claim restored');renderClaims();renderDashboard();
-  } else if(entry.type==='networth'){
-    DB.networth=DB.networth.filter(x=>x.month!==item.month);
-    DB.networth.push(item);
-    save();toast('Snapshot restored');renderNetworth();
   } else if(entry.type==='notmine'){
     if(!DB.notmine)DB.notmine=[];
     DB.notmine.push(item);
     save();toast('Entry restored');renderNotmine();
+  } else if(entry.type==='asset'){
+    if(!DB.assets)DB.assets=[];
+    DB.assets.push(item);
+    // Replay every ledger entry in chronological order to restore vault balances
+    (item.ledger||[]).slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{
+      const vault=vaultById(e.vaultId);
+      if(!vault)return;
+      if(e.type==='investment'){
+        vault.deposits.push({id:uid(),type:'withdrawal',reason:'Asset investment: '+item.name,amount:e.amount,date:e.date,source:'asset-restore'});
+      }else{
+        vault.deposits.push({id:uid(),type:'deposit',reason:'Asset return: '+item.name,amount:e.amount,date:e.date,source:'asset-restore'});
+      }
+      _recomputeV(vault);
+    });
+    save();toast('Asset restored');if(typeof renderAssets==='function')renderAssets();renderDashboard();
+  } else {
+    toast('Cannot restore this item type');return;
   }
   DB.trash=DB.trash.filter(t=>t.id!=trashId);
   save();renderBin();
